@@ -1,0 +1,20 @@
+{
+  "name": "vercel-serverless-expenses-api",
+  "version": "1.0.0",
+  "description": "A simple in-memory expenses API deployed on Vercel.",
+  "main": "api/expenses.js",
+  "scripts": {
+    "start": "vercel dev"
+  },
+  "keywords": [
+    "vercel",
+    "serverless",
+    "api"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "vercel": "^33.0.0"
+  },
+  "devDependencies": {}
+}
