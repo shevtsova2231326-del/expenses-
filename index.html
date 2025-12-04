@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serverless Expenses Tracker</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1, h2 { color: #333; }
+        form { background: #f4f4f4; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        input, select, button { padding: 10px; margin-bottom: 10px; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { background-color: #0070f3; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        #expensesList { border-collapse: collapse; width: 100%; margin-top: 15px; }
+        #expensesList th, #expensesList td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        #expensesList th { background-color: #f2f2f2; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>Serverless Expenses API Client 💸</h1>
+    <p>This page interacts with your Vercel API endpoint at **`/api/expenses`**.</p>
+    <div id="message" style="margin-bottom: 15px;"></div>
+
+    <hr>
+
+    <h2>Add New Expense (POST)</h2>
+    <form id="addExpenseForm">
+        <input type="number" id="amount" placeholder="Amount (e.g., 25.50)" step="0.01" required>
+        <input type="text" id="description" placeholder="Description" required>
+        <select id="category" required>
+            <option value="" disabled selected>Select Category</option>
+            <option value="Food">Food</option>
+            <option value="Transportation">Transportation</option>
+            <option value="Supplies">Supplies</option>
+            <option value="Other">Other</option>
+        </select>
+        <input type="date" id="date" required>
+        <button type="submit">Add Expense</button>
+    </form>
+
+    <hr>
+
+    <h2>All Expenses (GET)</h2>
+    <button onclick="fetchExpenses()">Refresh Expenses</button>
+    <table id="expensesList">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Amount</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            </tbody>
+    </table>
+
+    <script>
+        // REPLACE THIS WITH YOUR DEPLOYED VERCEL URL
+        // Example: https://my-expenses-app.vercel.app/api/expenses
+        const API_ENDPOINT = '/api/expenses'; 
+
+        const expensesListBody = document.querySelector('#expensesList tbody');
+        const messageDiv = document.getElementById('message');
+
+        // --- Utility Function to Display Messages ---
+        function displayMessage(text, type = 'success') {
+            messageDiv.textContent = text;
+            messageDiv.className = type;
+            setTimeout(() => messageDiv.textContent = '', 5000); // Clear after 5 seconds
+        }
+
+        // --- 1. Function to GET all expenses ---
+        async function fetchExpenses() {
+            try {
+                const response = await fetch(API_ENDPOINT);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                renderExpenses(data);
+                displayMessage('Expenses loaded successfully.');
+                
+            } catch (error) {
+                console.error('Error fetching expenses:', error);
+                renderExpenses([]); // Clear list on error
+                displayMessage(`Error: Could not connect to API. Is it deployed? (${error.message})`, 'error');
+            }
+        }
+
+        // --- 2. Function to Render Expenses in the Table ---
+        function renderExpenses(expenses) {
+            expensesListBody.innerHTML = ''; // Clear existing rows
+
+            if (expenses.length === 0) {
+                expensesListBody.innerHTML = '<tr><td colspan="5">No expenses found. Add one above!</td></tr>';
+                return;
+            }
+
+            expenses.forEach(expense => {
+                const row = expensesListBody.insertRow();
+                row.insertCell().textContent = expense.id;
+                row.insertCell().textContent = expense.amount.toFixed(2);
+                row.insertCell().textContent = expense.description;
+                row.insertCell().textContent = expense.category;
+                row.insertCell().textContent = expense.date;
+            });
+        }
+
+        // --- 3. Function to Handle POST Request ---
+        document.getElementById('addExpenseForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const newExpense = {
+                amount: parseFloat(document.getElementById('amount').value),
+                description: document.getElementById('description').value,
+                category: document.getElementById('category').value,
+                date: document.getElementById('date').value,
+            };
+
+            try {
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(newExpense),
+                });
+
+                const result = await response.json();
+
+                if (response.status === 201) {
+                    displayMessage(`Added successfully! ID: ${result.expense.id}`);
+                    document.getElementById('addExpenseForm').reset();
+                    // Refresh the list to show the new (in-memory) expense
+                    fetchExpenses();
+                } else {
+                    // Handle 400 validation error from the API
+                    displayMessage(`Error: ${result.error || 'Failed to add expense.'}`, 'error');
+                }
+
+            } catch (error) {
+                console.error('Error adding expense:', error);
+                displayMessage('Network error: Could not submit expense.', 'error');
+            }
+        });
+
+        // Load expenses when the page first loads
+        document.addEventListener('DOMContentLoaded', fetchExpenses);
+    </script>
+
+</body>
+</html>
