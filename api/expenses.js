@@ -1,8 +1,6 @@
-// This in-memory array will store the expenses.
-// IMPORTANT: In a true serverless environment, this data
-// will be reset with every new function invocation.
-// For persistent data, you must connect to a database.
-let expenses = [
+// --- Initial Data Store (outside the handler) ---
+// This acts as a template for the in-memory array.
+const INITIAL_EXPENSES = [
   { 
     id: 1, 
     amount: 50.00, 
@@ -19,6 +17,9 @@ let expenses = [
   }
 ];
 
+// NOTE: In a serverless environment, this array and nextId will reset 
+// on new function cold starts, as expected for this example.
+let expenses = [...INITIAL_EXPENSES];
 let nextId = expenses.length + 1;
 
 /**
@@ -27,19 +28,19 @@ let nextId = expenses.length + 1;
  * @param {import('@vercel/node').VercelResponse} res - The response object.
  */
 export default async function handler(req, res) {
-  // Set CORS headers for all responses (optional, but good practice)
+  // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle pre-flight CORS requests
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   // --- GET /api/expenses: Return all expenses ---
   if (req.method === 'GET') {
-    return res.status(200).json(expenses);
+    // The frontend expects the array directly, so we return it directly.
+    return res.status(200).json(expenses); 
   }
 
   // --- POST /api/expenses: Add a new expense ---
@@ -54,17 +55,20 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. Validate data types (optional but highly recommended)
-    if (typeof amount !== 'number' || isNaN(new Date(date))) {
+    // 2. Validate data types (Ensuring 'amount' is a number)
+    if (isNaN(parseFloat(amount)) || isNaN(new Date(date))) {
       return res.status(400).json({ 
         error: "Invalid data types: 'amount' must be a number and 'date' must be a valid date string.",
       });
     }
+    
+    // Ensure amount is stored as a number, not a string from the body
+    const numericAmount = parseFloat(amount);
 
     // 3. Create and add the new expense
     const newExpense = {
       id: nextId++,
-      amount,
+      amount: numericAmount,
       description,
       category,
       date,
@@ -80,7 +84,6 @@ export default async function handler(req, res) {
   }
 
   // --- Handle other methods ---
-  // Return a 405 Method Not Allowed for any other HTTP method
   res.setHeader('Allow', 'GET, POST');
   return res.status(405).json({ 
     error: `Method ${req.method} Not Allowed. Only GET and POST are supported.` 
