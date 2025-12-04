@@ -56,12 +56,11 @@
             </tr>
         </thead>
         <tbody>
-            </tbody>
+        </tbody>
     </table>
 
     <script>
-        // REPLACE THIS WITH YOUR DEPLOYED VERCEL URL
-        // Example: https://my-expenses-app.vercel.app/api/expenses
+        // The relative path is correct when hosted on Vercel alongside the /api directory.
         const API_ENDPOINT = '/api/expenses'; 
 
         const expensesListBody = document.querySelector('#expensesList tbody');
@@ -71,7 +70,7 @@
         function displayMessage(text, type = 'success') {
             messageDiv.textContent = text;
             messageDiv.className = type;
-            setTimeout(() => messageDiv.textContent = '', 5000); // Clear after 5 seconds
+            setTimeout(() => messageDiv.textContent = '', 5000); 
         }
 
         // --- 1. Function to GET all expenses ---
@@ -85,19 +84,24 @@
                 
                 const data = await response.json();
                 
-                renderExpenses(data);
-                displayMessage('Expenses loaded successfully.');
+                // IMPORTANT FIX: Ensure data is an array before rendering
+                if (Array.isArray(data)) {
+                    renderExpenses(data);
+                    displayMessage('Expenses loaded successfully.');
+                } else {
+                    throw new Error('API response was not a valid array of expenses.');
+                }
                 
             } catch (error) {
                 console.error('Error fetching expenses:', error);
-                renderExpenses([]); // Clear list on error
-                displayMessage(`Error: Could not connect to API. Is it deployed? (${error.message})`, 'error');
+                renderExpenses([]); 
+                displayMessage(`Error: Could not connect or data format invalid. (${error.message})`, 'error');
             }
         }
 
         // --- 2. Function to Render Expenses in the Table ---
         function renderExpenses(expenses) {
-            expensesListBody.innerHTML = ''; // Clear existing rows
+            expensesListBody.innerHTML = ''; 
 
             if (expenses.length === 0) {
                 expensesListBody.innerHTML = '<tr><td colspan="5">No expenses found. Add one above!</td></tr>';
@@ -107,10 +111,12 @@
             expenses.forEach(expense => {
                 const row = expensesListBody.insertRow();
                 row.insertCell().textContent = expense.id;
-                row.insertCell().textContent = expense.amount.toFixed(2);
+                row.insertCell().textContent = `$${expense.amount.toFixed(2)}`;
                 row.insertCell().textContent = expense.description;
                 row.insertCell().textContent = expense.category;
-                row.insertCell().textContent = expense.date;
+                // Basic date formatting for display
+                const date = new Date(expense.date);
+                row.insertCell().textContent = date.toLocaleDateString();
             });
         }
 
@@ -118,11 +124,13 @@
         document.getElementById('addExpenseForm').addEventListener('submit', async function(event) {
             event.preventDefault();
 
+            const form = event.target;
             const newExpense = {
-                amount: parseFloat(document.getElementById('amount').value),
-                description: document.getElementById('description').value,
-                category: document.getElementById('category').value,
-                date: document.getElementById('date').value,
+                // Use valueAsNumber for cleaner number parsing from input[type="number"]
+                amount: form.elements.amount.valueAsNumber, 
+                description: form.elements.description.value,
+                category: form.elements.category.value,
+                date: form.elements.date.value,
             };
 
             try {
@@ -134,21 +142,25 @@
                     body: JSON.stringify(newExpense),
                 });
 
+                // Check if response is JSON first, as errors often return JSON too
                 const result = await response.json();
 
                 if (response.status === 201) {
                     displayMessage(`Added successfully! ID: ${result.expense.id}`);
-                    document.getElementById('addExpenseForm').reset();
+                    form.reset();
                     // Refresh the list to show the new (in-memory) expense
                     fetchExpenses();
+                } else if (response.status === 400) {
+                     // Handle validation error from the API
+                    displayMessage(`Error: ${result.error}`, 'error');
                 } else {
-                    // Handle 400 validation error from the API
-                    displayMessage(`Error: ${result.error || 'Failed to add expense.'}`, 'error');
+                    // Handle other HTTP errors (e.g., 500 server error)
+                    displayMessage(`API Error (${response.status}): ${result.error || 'Server processing failed.'}`, 'error');
                 }
 
             } catch (error) {
                 console.error('Error adding expense:', error);
-                displayMessage('Network error: Could not submit expense.', 'error');
+                displayMessage(`Network error: Could not submit expense. (${error.message})`, 'error');
             }
         });
 
